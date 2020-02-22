@@ -1,10 +1,24 @@
 ﻿@page "/counter"
 
+@inject IJSRuntime JSRuntime
+
 <h1>Counter</h1>
 
 <p>Current count: @currentCount</p>
 
 <button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+<style>
+    .map {
+        height: 600px;
+        width: 100%;
+    }
+</style>
+
+<div style="margin: 3em 0 1em 0;" id="map" class="map"></div>
+
+<div><p>Postcode clicked, notified from JS via DOM: <span id="dom-notified">none yet</span></p></div>
+<div><p>Postcode clicked, invoked from JS to Blazor: @clickedPostcode</p></div>
 
 @code {
     private int currentCount = 0;
@@ -12,5 +26,68 @@
     private void IncrementCount()
     {
         currentCount++;
+    }
+
+
+
+    public class Location
+    {
+        public string Postcode { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+
+        public Location()
+        {
+
+        }
+
+        public Location(string postcode, double latitude, double longitude)
+        {
+            Postcode = postcode;
+            Latitude = latitude;
+            Longitude = longitude;
+        }
+    }
+
+    private Location baseLocation;
+    private Location[] locations { get; set; }
+    private DotNetObjectReference<Counter> objectReference;
+    private string clickedPostcode = "none yet";
+
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        baseLocation = new Location("W1A 1AA", 51.5186, -0.1438);
+
+        var l = new List<Location>();
+
+        l.Add(new Location("W1C 1DX", 51.5151, -0.1452));
+        l.Add(new Location("W1B 2EL", 51.5142, -0.1422));
+        l.Add(new Location("W1W 7FA", 51.5187, -0.1425));
+        l.Add(new Location("W1W 7FX", 51.5195, -0.1403));
+        l.Add(new Location("W1T 3EQ", 51.5180, -0.1363));
+
+        locations = l.ToArray();
+
+        objectReference = DotNetObjectReference.Create(this);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (firstRender)
+        {
+            await JSRuntime.InvokeAsync<object>("PostcodesOSMInterop.ShowMap", new object[] { "map", objectReference, baseLocation, locations });
+        }
+    }
+
+    [JSInvokable("SetClickedPostcode")]
+    public void SetClickedPostcode(string postcode)
+    {
+        clickedPostcode = postcode;
+        StateHasChanged();
     }
 }
